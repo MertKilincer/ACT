@@ -57,7 +57,6 @@ def preprocess_image(image):
 
     for img_idx in range(len(results)):
         if len(results[img_idx]) == 0:
-            print(f"No keypoints detected in image {img_idx + 1}")
             continue
         image_angles = {"Image": img_idx + 1}
 
@@ -96,9 +95,10 @@ def preprocess_image(image):
     df = df.drop(columns=dropped_columns)
     return df
 
-# Predict majority label from a 10-second recording
-if st.button("Predict Majority"):
+# Real-time video feed with prediction
+if st.button("Start Video & Predict"):
     cap = cv2.VideoCapture(0)
+    time.sleep(3) 
     if not cap.isOpened():
         st.write("Error: Could not open camera")
         st.stop()
@@ -113,19 +113,23 @@ if st.button("Predict Majority"):
             st.write("Error: Could not read frame")
             break
 
+        # Process frame
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         processed_data = preprocess_image(frame_rgb)
 
+        # Prediction
         if not processed_data.empty:
             scaled_data = standardScaler.transform(processed_data)
             prediction = ml_model.predict(scaled_data)
             predictions.append(prediction[0])
 
+        # Display frame
         frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
         frame_count += 1
 
     cap.release()
 
+    # Majority Prediction
     if predictions:
         prediction_counts = Counter(predictions)
         majority_label, majority_count = prediction_counts.most_common(1)[0]
