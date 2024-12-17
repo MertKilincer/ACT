@@ -2,11 +2,12 @@ import cv2
 import streamlit as st
 import numpy as np
 import torch
-from collections import deque
+from collections import Counter
 import pandas as pd
 from ultralytics import YOLO
 import joblib
 import math
+import time
 
 # Load the YOLO model
 model = YOLO("yolo11x-pose.pt")
@@ -16,62 +17,34 @@ model.to('cpu')
 ml_model = joblib.load("models/mlp_model.joblib")
 encoder = joblib.load("models/label_encoder.joblib")
 standardScaler = joblib.load("models/standard_scaler.joblib")
-# Initialize video capture
-cap = cv2.VideoCapture(0)
 
 # Streamlit app title and subheader
 st.title("ACT")
 st.subheader("Pose Estimation and Classification Demo")
 
-# Placeholder for frames
+# Placeholders for UI components
 frame_placeholder = st.empty()
+majority_prediction_placeholder = st.empty()
 
-# Create a placeholder for dynamic prediction display
-prediction_placeholder = st.empty()
-
-stop_button_pressed = st.button("Stop")
-restart_button_pressed = st.button("Restart")
-
-# Function to restart the video capture
-def restart_video_capture():
-    global cap
-    cap.release()
-    cap = cv2.VideoCapture(0)
-    if not cap.isOpened():
-        st.write("Error: Could not open camera")
-        st.stop()
-
-# Restart video capture if the restart button is pressed
-if restart_button_pressed:
-    restart_video_capture()
-
+# Function to calculate angles between three points
 def calculate_angle(p1, p2, p3):
-    # Create vectors
     v1 = p1 - p2
     v2 = p3 - p2
-    
-    # Calculate dot product and magnitudes
     dot_product = torch.dot(v1, v2)
     magnitude_v1 = torch.norm(v1)
     magnitude_v2 = torch.norm(v2)
-    
-    # Prevent division by zero
     if magnitude_v1 == 0 or magnitude_v2 == 0:
-        return None  # Undefined angle
-    
-    # Calculate angle in radians
+        return None
     angle_rad = torch.acos(dot_product / (magnitude_v1 * magnitude_v2))
-    # Convert to degrees
     return math.degrees(angle_rad.item())
 
-# Function to calculate Euclidean distance between two points (p1, p2)
+# Function to calculate distance between two points
 def calculate_distance(p1, p2):
     return torch.norm(p1 - p2).item()
 
-# Function to preprocess the image and extract angles and positions
+# Preprocess the image to extract keypoint-based features
 def preprocess_image(image):
     results = model.predict(image, imgsz=320, conf=0.5)
-
     angles_per_image = []
     joint_triplets = [
         (5, 7, 9), (6, 8, 10), (5, 11, 13), (6, 12, 14),
@@ -81,22 +54,20 @@ def preprocess_image(image):
                     "Left Shoulder", "Right Shoulder", "Left Elbow", "Right Elbow",
                     "Left Wrist", "Right Wrist", "Left Hip", "Right Hip",
                     "Left Knee", "Right Knee", "Left Ankle", "Right Ankle"]
-    
-    
 
-    for img_idx in range(len(results)):  
+    for img_idx in range(len(results)):
         if len(results[img_idx]) == 0:
             print(f"No keypoints detected in image {img_idx + 1}")
             continue
         image_angles = {"Image": img_idx + 1}
-        
+
         for triplet in joint_triplets:
-            p1 = results[img_idx].keypoints.xy[0][triplet[0]]  
+            p1 = results[img_idx].keypoints.xy[0][triplet[0]]
             p2 = results[img_idx].keypoints.xy[0][triplet[1]]
             p3 = results[img_idx].keypoints.xy[0][triplet[2]]
             angle = calculate_angle(p1, p2, p3)
             image_angles[f"{joint_labels[triplet[0]]}-{joint_labels[triplet[1]]}-{joint_labels[triplet[2]]}"] = angle
-        
+
         for i in range(len(results[img_idx].keypoints.xy[0])):
             for j in range(i + 1, len(results[img_idx].keypoints.xy[0])):
                 p1 = results[img_idx].keypoints.xy[0][i]
@@ -106,19 +77,13 @@ def preprocess_image(image):
 
         for i in range(len(results[img_idx].keypoints.xy[0])):
             p1 = results[img_idx].keypoints.xy[0][i]
-            y_pos = p1[1].item()  
-            x_pos = p1[0].item()  
+            y_pos = p1[1].item()
+            x_pos = p1[0].item()
             image_angles[f"{joint_labels[i]}_position_y"] = y_pos
             image_angles[f"{joint_labels[i]}_position_x"] = x_pos
 
         angles_per_image.append(image_angles)
-        # Draw keypoints and connections on the image
-        for i, keypoint in enumerate(results[img_idx].keypoints.xy[0]):
-            x, y = keypoint[0].item(), keypoint[1].item()
-            # Draw keypoints as circles
-            cv2.circle(image, (int(x), int(y)), 5, (0, 255, 0), -1)  # Green circles
-            # Add label text next to the keypoint
-            cv2.putText(image, joint_labels[i], (int(x) + 5, int(y) - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+
     df = pd.DataFrame(angles_per_image)
     dropped_columns = ['Left Shoulder-Left Elbow-Left Wrist',
                        'Right Shoulder-Right Elbow-Right Wrist',
@@ -131,40 +96,48 @@ def preprocess_image(image):
     df = df.drop(columns=dropped_columns)
     return df
 
-# Real-time frame processing and classification
-while cap.isOpened() and not stop_button_pressed:
-    ret, frame = cap.read()
+# Predict majority label from a 10-second recording
+if st.button("Predict Majority"):
+    cap = cv2.VideoCapture(0)
+    if not cap.isOpened():
+        st.write("Error: Could not open camera")
+        st.stop()
 
-    if not ret:
-        st.write("Exercise Ended")
-        break
+    frame_count = 0
+    predictions = []
+    start_time = time.time()
+    while time.time() - start_time < 10:
+        ret, frame = cap.read()
 
-    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        if not ret:
+            st.write("Error: Could not read frame")
+            break
 
-    
-    processed_data = preprocess_image(frame_rgb)
-    #scaled_data = standardScaler.fit_transform(processed_data)
-    prediction = ml_model.predict(processed_data)
-    predicted_class = encoder.inverse_transform(prediction)
-    
-        # Update the prediction markdown below the frame
-    prediction_placeholder.markdown(f"""
-    <div style="background-color: #f4f4f4; padding: 20px; border-radius: 10px; border: 2px solid #ddd; box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1); margin-bottom: 20px;">
-        <h3 style="text-align: center; color: #3E4E5E;">Predicted Class</h3>
-        <p style="font-size: 18px; text-align: center; color: #3E4E5E; font-weight: bold;">
-            {predicted_class[0]}
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
-    print(predicted_class[0])
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        processed_data = preprocess_image(frame_rgb)
 
-    # Display the frame in Streamlit
-    frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
+        if not processed_data.empty:
+            scaled_data = standardScaler.transform(processed_data)
+            prediction = ml_model.predict(scaled_data)
+            predictions.append(prediction[0])
 
-    # Check for stop button press or 'q' key press
-    if cv2.waitKey(1) & 0xFF == ord("q") or stop_button_pressed:
-        break
+        frame_placeholder.image(frame_rgb, channels="RGB", use_container_width=True)
+        frame_count += 1
 
-# Release the camera and close OpenCV windows
-cap.release()
-cv2.destroyAllWindows()
+    cap.release()
+
+    if predictions:
+        prediction_counts = Counter(predictions)
+        majority_label, majority_count = prediction_counts.most_common(1)[0]
+        majority_percentage = (majority_count / len(predictions)) * 100
+
+        majority_prediction_placeholder.markdown(f"""
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 10px; border: 2px solid #ddd; box-shadow: 2px 2px 12px rgba(0, 0, 0, 0.1); margin-bottom: 20px;">
+            <h3 style="text-align: center; color: #3E4E5E;">Majority Prediction</h3>
+            <p style="font-size: 18px; text-align: center; color: #3E4E5E; font-weight: bold;">
+                {encoder.inverse_transform([majority_label])[0]} ({majority_percentage:.2f}%)
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.write("No predictions made during the recording.")
