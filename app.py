@@ -14,7 +14,7 @@ model = YOLO("yolo11x-pose.pt")
 model.to('cpu')
 
 # Load the ML model and encoder
-ml_model = joblib.load("models/mlp_model.joblib")
+ml_model = joblib.load("models/best_mlp_model.joblib")
 encoder = joblib.load("models/label_encoder.joblib")
 standardScaler = joblib.load("models/standard_scaler.joblib")
 
