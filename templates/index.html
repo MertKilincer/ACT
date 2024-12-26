@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capture and Predict</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Capture Image for Prediction</h1>
+
+        <!-- Video stream from the camera -->
+        <div class="video-container">
+            <video id="camera" width="640" height="480" autoplay></video>
+        </div>
+
+        <!-- Canvas to capture image -->
+        <canvas id="canvas" style="display: none;"></canvas>
+
+        <!-- Buttons for actions -->
+        <div class="button-group">
+            <button id="captureButton" type="button">Capture Image</button>
+            <button id="uploadButton" type="button">Upload Image</button>
+            <input id="fileUpload" type="file" accept="image/*" style="display: none;">
+        </div>
+
+        <div id="image">image here</div>
+
+        <input id="fileUpload" type="file" accept="image/*" style="display: none;">
+
+
+        <!-- Div to display results -->
+        <div id="result" class="result-box">
+            <p>Result will appear here...</p>
+        </div>
+    </div>
+
+    <script src="/static/js/script.js"></script>
+</body>
+</html>

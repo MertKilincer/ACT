@@ -1,0 +1,110 @@
+/* Basic reset */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Body and overall layout */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #e0f7fa, #80deea);
+    color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+}
+
+/* Main container */
+.container {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.2);
+    padding: 30px;
+    width: 90%;
+    max-width: 800px;
+    text-align: center;
+}
+
+/* Heading */
+h1 {
+    color: #00796b;
+    margin-bottom: 20px;
+    font-size: 1.8rem;
+}
+
+/* Video container */
+.video-container {
+    margin: 20px auto;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    display: inline-block;
+}
+
+/* Canvas (hidden by default) */
+canvas {
+    display: none;
+}
+
+/* Button group */
+.button-group {
+    margin-top: 20px;
+}
+
+#captureButton,
+#uploadButton {
+    background: #00796b;
+    color: #fff;
+    border: none;
+    padding: 12px 20px;
+    margin: 0 10px;
+    font-size: 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+#captureButton:hover,
+#uploadButton:hover {
+    background: #004d40;
+}
+
+#fileUpload {
+    display: none;
+}
+
+/* Result box */
+.result-box {
+    margin-top: 30px;
+    padding: 15px;
+    background: #e0f2f1;
+    border: 1px solid #004d40;
+    border-radius: 8px;
+    color: #004d40;
+    font-weight: bold;
+    font-size: 16px;
+    text-align: center;
+}
+
+#image {
+    display: inline-block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+    margin-top: 20px;
+    font-size: larger;
+}
+
+#image img{
+    margin: 20px auto;
+    border: 2px solid #ddd;
+    border-radius: 12px;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+    display: inline-block;
+    width: 500px;
+}

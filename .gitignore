@@ -1,0 +1,5 @@
+yolo11x-pose.pt
+node_modules/
+package-lock.json
+package.json
+private-key.pem
